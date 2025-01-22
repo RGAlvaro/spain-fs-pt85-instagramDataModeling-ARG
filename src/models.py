@@ -1,32 +1,69 @@
 import os
 import sys
-from sqlalchemy import Column, ForeignKey, Integer, String
+from sqlalchemy import Column, ForeignKey, Integer, String, Text, DateTime
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy import create_engine
 from eralchemy2 import render_er
+from datetime import datetime
 
 Base = declarative_base()
 
-class Person(Base):
-    __tablename__ = 'person'
-    # Here we define columns for the table person
-    # Notice that each column is also a normal Python instance attribute.
+class User(Base):
+    __tablename__ = 'user'
     id = Column(Integer, primary_key=True)
-    name = Column(String(250), nullable=False)
+    username = Column(String(50), unique=True, nullable=False)
+    email = Column(String(120), unique=True, nullable=False)
+    password = Column(String(128), nullable=False)
+    profile_picture = Column(String(250), nullable=True)
+    bio = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
-class Address(Base):
-    __tablename__ = 'address'
-    # Here we define columns for the table address.
-    # Notice that each column is also a normal Python instance attribute.
+    posts = relationship('Post', back_populates='user', cascade="all, delete-orphan")
+    comments = relationship('Comment', back_populates='user', cascade="all, delete-orphan")
+    followers = relationship('Follow', foreign_keys='Follow.follower_id', back_populates='follower')
+    following = relationship('Follow', foreign_keys='Follow.followed_id', back_populates='followed')
+
+class Post(Base):
+    __tablename__ = 'post'
     id = Column(Integer, primary_key=True)
-    street_name = Column(String(250))
-    street_number = Column(String(250))
-    post_code = Column(String(250), nullable=False)
-    person_id = Column(Integer, ForeignKey('person.id'))
-    person = relationship(Person)
+    user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
+    image_url = Column(String(250), nullable=False)
+    caption = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
-    def to_dict(self):
-        return {}
+    user = relationship('User', back_populates='posts')
+    comments = relationship('Comment', back_populates='post', cascade="all, delete-orphan")
+    likes = relationship('Like', back_populates='post', cascade="all, delete-orphan")
+
+class Comment(Base):
+    __tablename__ = 'comment'
+    id = Column(Integer, primary_key=True)
+    post_id = Column(Integer, ForeignKey('post.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship('User', back_populates='comments')
+    post = relationship('Post', back_populates='comments')
+
+class Like(Base):
+    __tablename__ = 'like'
+    id = Column(Integer, primary_key=True)
+    post_id = Column(Integer, ForeignKey('post.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    post = relationship('Post', back_populates='likes')
+
+class Follow(Base):
+    __tablename__ = 'follow'
+    id = Column(Integer, primary_key=True)
+    follower_id = Column(Integer, ForeignKey('user.id'), nullable=False)
+    followed_id = Column(Integer, ForeignKey('user.id'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    follower = relationship('User', foreign_keys=[follower_id], back_populates='followers')
+    followed = relationship('User', foreign_keys=[followed_id], back_populates='following')
 
 ## Draw from SQLAlchemy base
 try:
